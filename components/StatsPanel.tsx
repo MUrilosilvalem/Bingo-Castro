@@ -46,8 +46,8 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ cards }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-full overflow-y-auto flex flex-col">
       <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-blue-500" />
+        <h2 className="text-2xl font-bold text-brand-blue flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-brand-lime" />
             Ranking
         </h2>
         <span className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
@@ -57,7 +57,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ cards }) => {
 
       <div className="flex-1 pr-1">
         {winners.length > 0 ? (
-            renderSection('Vencedores!', winners, 'border-amber-400 text-amber-800', 'bg-amber-50', <Trophy className="w-6 h-6 text-amber-500 fill-current"/>)
+            renderSection('Vencedores!', winners, 'border-brand-lime text-brand-blue', 'bg-brand-lime/10', <Trophy className="w-6 h-6 text-brand-lime fill-current"/>)
         ) : (
             <div className="text-center p-8 bg-slate-50 rounded-xl mb-8 border-2 border-dashed border-slate-200">
                 <Trophy className="w-10 h-10 text-slate-300 mx-auto mb-2" />

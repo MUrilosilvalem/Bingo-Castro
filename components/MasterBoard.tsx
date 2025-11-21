@@ -26,9 +26,9 @@ const MasterBoard: React.FC<MasterBoardProps> = ({ drawnNumbers, lastDrawn }) =>
                 className={`
                   w-8 h-8 flex items-center justify-center text-sm font-medium rounded-full transition-all duration-300
                   ${isLast 
-                    ? 'bg-amber-400 text-white scale-110 shadow-lg ring-2 ring-amber-200 z-10 font-bold' 
+                    ? 'bg-brand-lime text-brand-blue scale-110 shadow-lg ring-2 ring-lime-200 z-10 font-bold' 
                     : isDrawn 
-                      ? 'bg-slate-800 text-white' 
+                      ? 'bg-brand-blue text-white' 
                       : 'bg-slate-100 text-slate-300'}
                 `}
               >
@@ -45,7 +45,7 @@ const MasterBoard: React.FC<MasterBoardProps> = ({ drawnNumbers, lastDrawn }) =>
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Mesa de Controle</h3>
-          <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded-md border border-slate-200">
+          <span className="bg-brand-blue text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
               {drawnNumbers.size} Sorteados
           </span>
       </div>

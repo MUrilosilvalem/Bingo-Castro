@@ -3,23 +3,42 @@ import { BingoCard } from '../types';
 
 interface PrintableCardProps {
   card: BingoCard;
+  logoSrc?: string | null;
 }
 
-export const PrintableCard: React.FC<PrintableCardProps> = ({ card }) => {
+export const PrintableCard: React.FC<PrintableCardProps> = ({ card, logoSrc }) => {
   return (
-    <div className="border-2 border-black p-4 break-inside-avoid bg-white text-black w-full max-w-[300px] mx-auto">
-      <div className="text-center border-b-2 border-black mb-2 pb-1">
-        <h2 className="text-2xl font-black uppercase tracking-widest">BINGO</h2>
-        <div className="flex justify-between text-xs mt-1 font-medium">
-          <span className="truncate max-w-[150px]">{card.playerName}</span>
-          <span>#{card.id}</span>
-        </div>
+    <div className="border-4 border-brand-blue p-4 break-inside-avoid bg-white text-black w-full max-w-[300px] mx-auto rounded-xl relative overflow-hidden">
+      
+      {/* Header with Logo */}
+      <div className="text-center border-b-2 border-brand-blue/20 mb-3 pb-2 flex flex-col items-center">
+         <div className="h-16 w-full flex items-center justify-center mb-1">
+            <img 
+                src={logoSrc || "logo.png"} 
+                alt="Castro Laboratório" 
+                className="h-full w-full object-contain" 
+                onError={(e) => {
+                    if (!logoSrc) {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.querySelector('.fallback-logo-print')!.classList.remove('hidden');
+                    }
+                }}
+            />
+            <span className="fallback-logo-print hidden font-black text-2xl text-brand-blue tracking-widest">CASTRO</span>
+         </div>
+         <div className="w-full flex justify-between text-xs font-semibold text-brand-blue uppercase px-1">
+            <span className="truncate max-w-[150px]">{card.playerName}</span>
+            <span>#{card.id}</span>
+         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-0 border-2 border-black">
+      <div className="grid grid-cols-5 gap-0 border-2 border-brand-blue">
         {/* Headers */}
-        {['B', 'I', 'N', 'G', 'O'].map((char) => (
-          <div key={char} className="h-8 flex items-center justify-center font-black text-lg border-b-2 border-r-2 border-black last:border-r-0 bg-gray-200 print:bg-gray-200">
+        {['B', 'I', 'N', 'G', 'O'].map((char, i) => (
+          <div key={char} className={`
+            h-9 flex items-center justify-center font-black text-lg border-b-2 border-r-2 border-brand-blue last:border-r-0 text-white
+            ${i % 2 === 0 ? 'bg-brand-blue' : 'bg-brand-blue/90'} print:bg-brand-blue print:text-white
+            `}>
             {char}
           </div>
         ))}
@@ -37,21 +56,23 @@ export const PrintableCard: React.FC<PrintableCardProps> = ({ card }) => {
               key={idx} 
               className={`
                 h-12 flex items-center justify-center text-xl font-bold
-                ${!isLastCol ? 'border-r border-black' : ''}
-                ${!isLastRow ? 'border-b border-black' : ''}
+                ${!isLastCol ? 'border-r border-brand-blue' : ''}
+                ${!isLastRow ? 'border-b border-brand-blue' : ''}
               `}
             >
               {cell.number === 'FREE' ? (
-                <span className="text-xs font-bold rotate-0">FREE</span>
+                <div className="w-full h-full bg-brand-lime/20 flex items-center justify-center print:bg-gray-200">
+                     <span className="text-[10px] font-black text-brand-blue rotate-0">FREE</span>
+                </div>
               ) : (
-                cell.number
+                <span className="text-slate-800">{cell.number}</span>
               )}
             </div>
           );
         })}
       </div>
-      <div className="text-[10px] text-center mt-1 text-gray-500">
-        Bingo Master Pro
+      <div className="text-[9px] text-center mt-2 font-medium text-brand-blue/60">
+        Boa Sorte! • Castro Laboratório Clínico
       </div>
     </div>
   );

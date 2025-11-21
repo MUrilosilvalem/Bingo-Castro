@@ -8,7 +8,7 @@ import { CardPreview } from './components/CardPreview';
 import { 
   Play, RotateCcw, Plus, UserPlus, Trophy, Printer, 
   Users, ArrowLeft, Check, Keyboard, Dices, LayoutGrid, 
-  Gamepad2, Trash2 
+  Gamepad2, Trash2, Upload, ImageIcon
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [batchQuantity, setBatchQuantity] = useState<number>(10);
   const [batchPrefix, setBatchPrefix] = useState<string>('Cartela');
+  const [customLogo, setCustomLogo] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Draw Mode State (Auto vs Manual)
@@ -33,6 +34,17 @@ const App: React.FC = () => {
   const hasWinner = cards.some(c => c.isWinner);
 
   // --- Actions ---
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCustomLogo(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleAddPlayer = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -153,19 +165,21 @@ const App: React.FC = () => {
 
     let color = 'bg-slate-700';
     let text = 'text-white';
+    let borderColor = 'border-white';
     
+    // Classic Bingo Colors
     if (lastDrawn <= 15) color = 'bg-blue-600';
     else if (lastDrawn <= 30) color = 'bg-red-600';
-    else if (lastDrawn <= 45) color = 'bg-emerald-600';
+    else if (lastDrawn <= 45) color = 'bg-emerald-600'; // Green
     else if (lastDrawn <= 60) color = 'bg-orange-600';
     else color = 'bg-purple-600';
 
     return (
       <div className="flex flex-col items-center animate-in zoom-in duration-300">
-        <div className={`w-40 h-40 md:w-48 md:h-48 rounded-full shadow-2xl flex items-center justify-center ${color} ${text} border-8 border-white ring-4 ring-slate-100`}>
+        <div className={`w-40 h-40 md:w-48 md:h-48 rounded-full shadow-2xl flex items-center justify-center ${color} ${text} border-8 ${borderColor} ring-4 ring-brand-blue/20`}>
           <span className="text-7xl md:text-8xl font-black tracking-tighter">{lastDrawn}</span>
         </div>
-        <div className="mt-4 text-2xl font-bold text-slate-700 uppercase tracking-widest">
+        <div className="mt-4 text-2xl font-bold text-brand-blue uppercase tracking-widest">
             {lastDrawn <= 15 ? 'B' : lastDrawn <= 30 ? 'I' : lastDrawn <= 45 ? 'N' : lastDrawn <= 60 ? 'G' : 'O'}
         </div>
       </div>
@@ -176,9 +190,30 @@ const App: React.FC = () => {
     <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Forms Column */}
         <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            
+            {/* Logo Upload Section */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-slate-400">
                 <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <UserPlus className="w-5 h-5 text-blue-600" /> Adicionar Individual
+                    <ImageIcon className="w-5 h-5 text-slate-600" /> Personalizar Logo
+                </h2>
+                <div className="space-y-3">
+                    <label className="block text-sm text-slate-600">
+                        Carregue a imagem da logo para aparecer no topo e nas impressões.
+                    </label>
+                    <div className="flex items-center gap-3">
+                        <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg border border-slate-300 flex items-center gap-2 text-sm font-medium transition-colors">
+                            <Upload className="w-4 h-4" />
+                            Escolher Arquivo
+                            <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                        </label>
+                        {customLogo && <span className="text-xs text-green-600 font-bold flex items-center gap-1"><Check className="w-3 h-3"/> Carregada</span>}
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border-t-4 border-brand-blue">
+                <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-brand-blue" /> Adicionar Individual
                 </h2>
                 <form onSubmit={handleAddPlayer} className="flex gap-2">
                     <input 
@@ -187,20 +222,20 @@ const App: React.FC = () => {
                         value={newPlayerName}
                         onChange={(e) => setNewPlayerName(e.target.value)}
                         placeholder="Nome do Jogador"
-                        className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
                     />
                     <button 
                         type="submit"
-                        className="bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition-colors"
+                        className="bg-brand-blue text-white px-4 py-2 rounded-lg hover:bg-brand-blue/90 transition-colors"
                     >
                         <Plus className="w-5 h-5" />
                     </button>
                 </form>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div className="bg-white p-6 rounded-xl shadow-sm border-t-4 border-brand-lime">
                 <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-blue-600" /> Gerar Lote
+                    <Users className="w-5 h-5 text-brand-lime" /> Gerar Lote
                 </h2>
                 <form onSubmit={handleBatchGenerate} className="space-y-4">
                     <div>
@@ -209,36 +244,27 @@ const App: React.FC = () => {
                             type="text" 
                             value={batchPrefix}
                             onChange={(e) => setBatchPrefix(e.target.value)}
-                            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-600 mb-1">Quantidade</label>
                         <input 
                             type="number" 
-                            min="1"
+                            min="1" 
                             max="100"
                             value={batchQuantity}
                             onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
-                            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
                         />
                     </div>
                     <button 
                         type="submit"
-                        className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-3 rounded-lg hover:bg-blue-100 transition-colors font-medium flex items-center justify-center gap-2"
+                        className="w-full bg-brand-blue/5 text-brand-blue border border-brand-blue/20 py-3 rounded-lg hover:bg-brand-blue/10 transition-colors font-medium flex items-center justify-center gap-2"
                     >
                         <Users className="w-4 h-4" /> Gerar {batchQuantity} Cartelas
                     </button>
                 </form>
-            </div>
-
-            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                <h3 className="font-bold text-blue-800 mb-2">Próximos Passos</h3>
-                <ol className="list-decimal list-inside text-sm text-blue-700 space-y-2">
-                    <li>Gere as cartelas necessárias.</li>
-                    <li>Imprima se for jogar com papel.</li>
-                    <li>Vá para a aba <strong>JOGO</strong> para iniciar o sorteio.</li>
-                </ol>
             </div>
         </div>
 
@@ -286,19 +312,20 @@ const App: React.FC = () => {
             
             {/* Draw Area */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden shrink-0">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+                {/* Decorative Gradient based on Brand Colors */}
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-blue via-brand-lime to-brand-blue"></div>
                 
                 {/* Mode Toggle */}
                 <div className="absolute top-4 right-4 flex bg-slate-100 rounded-lg p-1 z-20">
                     <button 
                         onClick={() => setDrawMode('AUTO')}
-                        className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${drawMode === 'AUTO' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${drawMode === 'AUTO' ? 'bg-white shadow text-brand-blue' : 'text-slate-500'}`}
                     >
                         <Dices className="w-3 h-3"/> Auto
                     </button>
                     <button 
                          onClick={() => setDrawMode('MANUAL')}
-                         className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${drawMode === 'MANUAL' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
+                         className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${drawMode === 'MANUAL' ? 'bg-white shadow text-brand-blue' : 'text-slate-500'}`}
                     >
                         <Keyboard className="w-3 h-3"/> Manual
                     </button>
@@ -317,7 +344,7 @@ const App: React.FC = () => {
                                 w-full max-w-xs py-4 rounded-xl font-bold text-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-3
                                 ${hasWinner 
                                     ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-blue-200'}
+                                    : 'bg-brand-blue hover:bg-brand-blue/90 text-white shadow-brand-blue/30'}
                             `}
                         >
                             {hasWinner ? (
@@ -342,13 +369,13 @@ const App: React.FC = () => {
                                         setManualError(null);
                                     }}
                                     placeholder="#"
-                                    className="flex-1 text-center text-2xl font-bold py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:outline-none"
+                                    className="flex-1 text-center text-2xl font-bold py-3 rounded-xl border-2 border-slate-200 focus:border-brand-blue focus:outline-none"
                                     autoFocus
                                 />
                                 <button 
                                     type="submit"
                                     disabled={!manualInput || hasWinner}
-                                    className="bg-blue-600 text-white rounded-xl px-6 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="bg-brand-blue text-white rounded-xl px-6 hover:bg-brand-blue/90 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Check className="w-8 h-8" />
                                 </button>
@@ -361,7 +388,7 @@ const App: React.FC = () => {
                     )}
 
                     {hasWinner && (
-                         <div className="animate-bounce text-amber-500 font-bold text-lg flex items-center gap-2">
+                         <div className="animate-bounce text-brand-lime font-bold text-lg flex items-center gap-2">
                              <Trophy className="w-6 h-6" /> TEMOS VENCEDOR!
                          </div>
                     )}
@@ -381,7 +408,7 @@ const App: React.FC = () => {
                      <p className="text-slate-500 mb-6">Vá para o Gerador para criar cartelas antes de começar.</p>
                      <button 
                         onClick={() => setViewMode('GENERATOR')}
-                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        className="bg-brand-blue text-white px-6 py-2 rounded-lg hover:bg-brand-blue/90 transition-colors font-medium"
                      >
                          Ir para Gerador
                      </button>
@@ -402,7 +429,7 @@ const App: React.FC = () => {
                       <button onClick={() => setViewMode('GENERATOR')} className="flex items-center gap-2 px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 border border-slate-300">
                           <ArrowLeft className="w-4 h-4"/> Voltar
                       </button>
-                      <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm">
+                      <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-blue text-white hover:bg-brand-blue/90 shadow-sm">
                           <Printer className="w-4 h-4"/> Imprimir
                       </button>
                   </div>
@@ -410,7 +437,7 @@ const App: React.FC = () => {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 print:grid-cols-2 print:gap-4">
                   {cards.map(card => (
-                      <PrintableCard key={card.id} card={card} />
+                      <PrintableCard key={card.id} card={card} logoSrc={customLogo} />
                   ))}
               </div>
           </div>
@@ -422,22 +449,36 @@ const App: React.FC = () => {
       {/* Navbar */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black">B</div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden md:block">Bingo Master <span className="text-blue-600">Pro</span></h1>
+          <div className="flex items-center gap-3">
+            {/* Logo Section */}
+            <div className="h-10 relative flex items-center">
+                <img src={customLogo || "logo.png"} alt="Castro Laboratório" className="h-full w-auto object-contain" onError={(e) => {
+                    if (!customLogo) {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.querySelector('.fallback-logo')!.classList.remove('hidden');
+                    }
+                }} />
+                <div className="fallback-logo hidden flex items-center gap-2">
+                    <div className="w-10 h-10 bg-brand-blue rounded-lg flex items-center justify-center text-white font-black text-xl">C</div>
+                    <div className="flex flex-col leading-tight">
+                        <span className="font-bold text-brand-blue text-lg tracking-tight">CASTRO</span>
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Laboratório Clínico</span>
+                    </div>
+                </div>
+            </div>
           </div>
           
           {/* Tabs */}
           <div className="flex items-center bg-slate-100 p-1 rounded-lg mx-4">
               <button 
                 onClick={() => setViewMode('GENERATOR')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${viewMode === 'GENERATOR' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${viewMode === 'GENERATOR' ? 'bg-white shadow text-brand-blue' : 'text-slate-600 hover:text-slate-900'}`}
               >
                   <LayoutGrid className="w-4 h-4" /> <span className="hidden sm:inline">Gerador</span>
               </button>
               <button 
                 onClick={() => setViewMode('GAME')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${viewMode === 'GAME' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${viewMode === 'GAME' ? 'bg-white shadow text-brand-blue' : 'text-slate-600 hover:text-slate-900'}`}
               >
                   <Gamepad2 className="w-4 h-4" /> <span className="hidden sm:inline">Jogo</span>
               </button>
@@ -452,7 +493,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2">
              <button 
                 onClick={handleReset}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                className="p-2 text-slate-400 hover:text-brand-blue hover:bg-blue-50 rounded-full transition-colors"
                 title="Reiniciar Sorteio"
             >
                 <RotateCcw className="w-5 h-5" />

@@ -21,7 +21,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, showGrid = true 
     <div className={`
       relative rounded-xl border-2 transition-all duration-300 shadow-sm overflow-hidden
       ${card.isWinner 
-        ? 'bg-amber-50 border-amber-400 shadow-amber-100 ring-2 ring-amber-200 scale-[1.02]' 
+        ? 'bg-lime-50 border-brand-lime shadow-lime-100 ring-2 ring-lime-200 scale-[1.02]' 
         : card.missingCount === 1
             ? 'bg-red-50 border-red-300 shadow-red-100'
         : card.missingCount <= 3 
@@ -33,7 +33,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, showGrid = true 
       {/* Header Section */}
       <div className={`${showGrid ? 'flex justify-between items-center mb-3' : 'flex-1 min-w-0'}`}>
         <div className="overflow-hidden">
-          <h4 className={`font-bold truncate ${showGrid ? 'text-lg' : 'text-2xl'} ${card.isWinner ? 'text-amber-800' : 'text-slate-800'}`} title={card.playerName}>
+          <h4 className={`font-bold truncate ${showGrid ? 'text-lg' : 'text-2xl'} ${card.isWinner ? 'text-brand-blue' : 'text-slate-800'}`} title={card.playerName}>
               {card.playerName}
           </h4>
           <p className="text-xs font-mono text-slate-500">ID: {card.id}</p>
@@ -42,7 +42,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, showGrid = true 
         {/* If Grid is shown, the badge is in the header. If not, we handle it differently below */}
         {showGrid && (
             card.isWinner ? (
-                <div className="bg-amber-100 text-amber-700 p-1.5 rounded-full animate-bounce">
+                <div className="bg-brand-lime text-brand-blue p-1.5 rounded-full animate-bounce">
                     <Trophy className="w-6 h-6" />
                 </div>
             ) : (
@@ -67,9 +67,9 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, showGrid = true 
                     key={idx} 
                     className={`
                     w-full aspect-square rounded-[2px] 
-                    ${cell.number === 'FREE' ? 'bg-emerald-200/50' : 
+                    ${cell.number === 'FREE' ? 'bg-brand-lime/30' : 
                         cell.isMarked 
-                            ? card.isWinner ? 'bg-amber-500' : 'bg-blue-500' 
+                            ? card.isWinner ? 'bg-brand-lime' : 'bg-brand-blue' 
                             : 'bg-slate-200'}
                     `}
                 />
@@ -106,9 +106,9 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, showGrid = true 
                       </div>
                   </div>
               ) : (
-                  <div className="flex items-center gap-2 bg-amber-100 px-4 py-2 rounded-lg border border-amber-200">
-                      <Trophy className="w-6 h-6 text-amber-600" />
-                      <span className="font-black text-amber-800 uppercase tracking-widest">Bingo!</span>
+                  <div className="flex items-center gap-2 bg-brand-lime px-4 py-2 rounded-lg border border-lime-300 shadow-sm">
+                      <Trophy className="w-6 h-6 text-brand-blue" />
+                      <span className="font-black text-brand-blue uppercase tracking-widest">Bingo!</span>
                   </div>
               )}
           </div>
