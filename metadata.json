@@ -1,0 +1,5 @@
+{
+  "name": "Bingo Master Pro",
+  "description": "Sistema completo de Bingo com geração de cartelas, sorteio manual, monitoramento em tempo real de vencedores e ranking de cartelas por números faltantes (3, 2, 1).",
+  "requestFramePermissions": []
+}
