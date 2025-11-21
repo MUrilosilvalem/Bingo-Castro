@@ -4,11 +4,16 @@ import { generateCard, updateCardStats } from './utils/bingoLogic';
 import MasterBoard from './components/MasterBoard';
 import StatsPanel from './components/StatsPanel';
 import { PrintableCard } from './components/PrintableCard';
-import { Play, RotateCcw, Plus, UserPlus, Trophy, Printer, Users, ArrowLeft, Check, Keyboard, Dices } from 'lucide-react';
+import { CardPreview } from './components/CardPreview';
+import { 
+  Play, RotateCcw, Plus, UserPlus, Trophy, Printer, 
+  Users, ArrowLeft, Check, Keyboard, Dices, LayoutGrid, 
+  Gamepad2, Trash2 
+} from 'lucide-react';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<GameStatus>('SETUP');
-  const [viewMode, setViewMode] = useState<'GAME' | 'PRINT'>('GAME');
+  const [viewMode, setViewMode] = useState<'GAME' | 'GENERATOR' | 'PRINT'>('GENERATOR');
   const [drawnNumbers, setDrawnNumbers] = useState<Set<number>>(new Set());
   const [lastDrawn, setLastDrawn] = useState<number | null>(null);
   const [cards, setCards] = useState<BingoCard[]>([]);
@@ -49,6 +54,10 @@ const App: React.FC = () => {
         newCards.push(generateCard(`${batchPrefix} #${idNum}`));
     }
     setCards(prev => [...prev, ...newCards]);
+  };
+
+  const handleDeleteCard = (id: string) => {
+    setCards(prev => prev.filter(c => c.id !== id));
   };
 
   const handleDrawNumber = useCallback(() => {
@@ -92,7 +101,7 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    if (window.confirm("Tem certeza que deseja reiniciar o jogo? Todas as marcações serão perdidas.")) {
+    if (window.confirm("Tem certeza que deseja reiniciar o sorteio? Todas as marcações serão perdidas.")) {
       setStatus('SETUP');
       setDrawnNumbers(new Set());
       setLastDrawn(null);
@@ -102,7 +111,7 @@ const App: React.FC = () => {
   };
 
   const handleClearPlayers = () => {
-      if (window.confirm("Isso apagará todas as cartelas. Continuar?")) {
+      if (window.confirm("Isso apagará DEFINITIVAMENTE todas as cartelas geradas. Continuar?")) {
         setCards([]);
         handleReset();
       }
@@ -119,7 +128,7 @@ const App: React.FC = () => {
     );
   }, [drawnNumbers, status]);
 
-  // Auto-play sound effect or speech (simple browser speech synthesis)
+  // Auto-play sound effect
   useEffect(() => {
     if (lastDrawn) {
         if ('speechSynthesis' in window) {
@@ -163,74 +172,120 @@ const App: React.FC = () => {
     );
   };
 
-  if (viewMode === 'PRINT') {
-      return (
-          <div className="min-h-screen bg-white p-8">
-              <div className="max-w-6xl mx-auto no-print mb-8 flex justify-between items-center">
-                  <h1 className="text-2xl font-bold text-slate-800">Modo de Impressão ({cards.length} cartelas)</h1>
-                  <div className="flex gap-4">
-                      <button onClick={() => setViewMode('GAME')} className="flex items-center gap-2 px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 border border-slate-300">
-                          <ArrowLeft className="w-4 h-4"/> Voltar ao Jogo
-                      </button>
-                      <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm">
-                          <Printer className="w-4 h-4"/> Imprimir
-                      </button>
-                  </div>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 print:grid-cols-2 print:gap-4">
-                  {cards.map(card => (
-                      <PrintableCard key={card.id} card={card} />
-                  ))}
-              </div>
-          </div>
-      )
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col bg-slate-50 font-sans no-print-ui">
-      {/* Navbar */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black">B</div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden md:block">Bingo Master <span className="text-blue-600">Pro</span></h1>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-sm font-medium text-slate-600">
-              <span>Cartelas: {cards.length}</span>
-              <span className="w-1 h-1 bg-slate-400 rounded-full"></span>
-              <span>Sorteados: {drawnNumbers.size}/75</span>
+  const renderGeneratorView = () => (
+    <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Forms Column */}
+        <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-blue-600" /> Adicionar Individual
+                </h2>
+                <form onSubmit={handleAddPlayer} className="flex gap-2">
+                    <input 
+                        ref={nameInputRef}
+                        type="text" 
+                        value={newPlayerName}
+                        onChange={(e) => setNewPlayerName(e.target.value)}
+                        placeholder="Nome do Jogador"
+                        className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button 
+                        type="submit"
+                        className="bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition-colors"
+                    >
+                        <Plus className="w-5 h-5" />
+                    </button>
+                </form>
             </div>
-            
-            <button 
-                onClick={() => setViewMode('PRINT')}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors flex items-center gap-2 text-sm font-medium px-3 bg-blue-50/50"
-                title="Imprimir Cartelas"
-            >
-                <Printer className="w-5 h-5" />
-                <span className="hidden md:inline">Imprimir</span>
-            </button>
 
-            <button 
-                onClick={handleReset}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-                title="Reiniciar Jogo"
-            >
-                <RotateCcw className="w-5 h-5" />
-            </button>
-          </div>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-blue-600" /> Gerar Lote
+                </h2>
+                <form onSubmit={handleBatchGenerate} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Prefixo do Nome</label>
+                        <input 
+                            type="text" 
+                            value={batchPrefix}
+                            onChange={(e) => setBatchPrefix(e.target.value)}
+                            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Quantidade</label>
+                        <input 
+                            type="number" 
+                            min="1"
+                            max="100"
+                            value={batchQuantity}
+                            onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
+                            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <button 
+                        type="submit"
+                        className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-3 rounded-lg hover:bg-blue-100 transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                        <Users className="w-4 h-4" /> Gerar {batchQuantity} Cartelas
+                    </button>
+                </form>
+            </div>
+
+            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                <h3 className="font-bold text-blue-800 mb-2">Próximos Passos</h3>
+                <ol className="list-decimal list-inside text-sm text-blue-700 space-y-2">
+                    <li>Gere as cartelas necessárias.</li>
+                    <li>Imprima se for jogar com papel.</li>
+                    <li>Vá para a aba <strong>JOGO</strong> para iniciar o sorteio.</li>
+                </ol>
+            </div>
         </div>
-      </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 no-print">
-        
-        {/* Left Column: Controls & Board (8 cols) */}
-        <div className="lg:col-span-8 space-y-6">
+        {/* List Column */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[calc(100vh-150px)]">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
+                <h2 className="font-bold text-slate-700">Cartelas Geradas ({cards.length})</h2>
+                {cards.length > 0 && (
+                    <button onClick={handleClearPlayers} className="text-sm text-red-500 hover:text-red-700 flex items-center gap-1 px-3 py-1 rounded hover:bg-red-50 transition-colors">
+                        <Trash2 className="w-4 h-4" /> Limpar Tudo
+                    </button>
+                )}
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 bg-slate-100/50">
+                {cards.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                        <LayoutGrid className="w-16 h-16 mb-4 opacity-20" />
+                        <p>Nenhuma cartela gerada ainda.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {cards.map(card => (
+                            <div key={card.id} className="relative group">
+                                <CardPreview card={card} />
+                                <button 
+                                    onClick={() => handleDeleteCard(card.id)}
+                                    className="absolute top-2 right-2 bg-white text-red-500 p-1.5 rounded-md shadow opacity-0 group-hover:opacity-100 transition-opacity border border-slate-200 hover:bg-red-50"
+                                    title="Excluir cartela"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    </div>
+  );
+
+  const renderGameView = () => (
+    <div className="max-w-[1600px] mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-100px)]">
+        {/* Left Column: Controls & Board */}
+        <div className="lg:col-span-7 flex flex-col gap-6 overflow-y-auto">
             
             {/* Draw Area */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden shrink-0">
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
                 
                 {/* Mode Toggle */}
@@ -310,7 +365,6 @@ const App: React.FC = () => {
                              <Trophy className="w-6 h-6" /> TEMOS VENCEDOR!
                          </div>
                     )}
-                    {drawMode === 'AUTO' && !hasWinner && <p className="text-slate-400 text-sm">Clique ou pressione Espaço</p>}
                 </div>
             </div>
 
@@ -318,84 +372,98 @@ const App: React.FC = () => {
             <MasterBoard drawnNumbers={drawnNumbers} lastDrawn={lastDrawn} />
         </div>
 
-        {/* Right Column: Sidebar (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col gap-6 h-[calc(100vh-100px)] sticky top-24">
-            
-            <div className="space-y-4 shrink-0">
-                {/* Single Player Widget */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                    <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2 text-sm">
-                        <UserPlus className="w-4 h-4" /> Nova Cartela Individual
-                    </h3>
-                    <form onSubmit={handleAddPlayer} className="flex gap-2">
-                        <input 
-                            ref={nameInputRef}
-                            type="text" 
-                            value={newPlayerName}
-                            onChange={(e) => setNewPlayerName(e.target.value)}
-                            placeholder="Nome do Jogador"
-                            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        />
-                        <button 
-                            type="submit"
-                            className="bg-slate-800 text-white p-2 rounded-lg hover:bg-slate-900 transition-colors"
-                        >
-                            <Plus className="w-4 h-4" />
-                        </button>
-                    </form>
-                </div>
-
-                {/* Batch Widget */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                    <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2 text-sm">
-                        <Users className="w-4 h-4" /> Gerar Lote de Cartelas
-                    </h3>
-                    <form onSubmit={handleBatchGenerate} className="flex flex-col gap-3">
-                        <div className="flex gap-2">
-                            <div className="flex-1">
-                                <label className="text-[10px] text-slate-400 uppercase font-bold">Prefixo</label>
-                                <input 
-                                    type="text" 
-                                    value={batchPrefix}
-                                    onChange={(e) => setBatchPrefix(e.target.value)}
-                                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                />
-                            </div>
-                            <div className="w-20">
-                                <label className="text-[10px] text-slate-400 uppercase font-bold">Qtd</label>
-                                <input 
-                                    type="number" 
-                                    min="1"
-                                    max="100"
-                                    value={batchQuantity}
-                                    onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
-                                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                />
-                            </div>
-                        </div>
-                        <button 
-                            type="submit"
-                            className="w-full bg-slate-100 text-slate-700 border border-slate-200 p-2 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
-                        >
-                            Gerar {batchQuantity} Cartelas
-                        </button>
-                    </form>
-                </div>
-                
-                {cards.length > 0 && (
-                    <button onClick={handleClearPlayers} className="w-full text-xs text-red-400 hover:text-red-600 underline">
-                        Limpar todas as {cards.length} cartelas
-                    </button>
-                )}
-            </div>
-
-            {/* Stats / Ranking */}
-            <div className="flex-1 min-h-0">
+        {/* Right Column: Stats / Ranking (Expanded) */}
+        <div className="lg:col-span-5 flex flex-col h-full min-h-0">
+             {cards.length === 0 ? (
+                 <div className="bg-white rounded-xl p-8 text-center border border-slate-200 shadow-sm flex flex-col items-center justify-center h-full">
+                     <LayoutGrid className="w-16 h-16 text-slate-300 mb-4" />
+                     <h3 className="text-xl font-bold text-slate-700 mb-2">Nenhuma cartela no jogo</h3>
+                     <p className="text-slate-500 mb-6">Vá para o Gerador para criar cartelas antes de começar.</p>
+                     <button 
+                        onClick={() => setViewMode('GENERATOR')}
+                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                     >
+                         Ir para Gerador
+                     </button>
+                 </div>
+             ) : (
                 <StatsPanel cards={cards} />
-            </div>
-
+             )}
         </div>
+    </div>
+  );
 
+  if (viewMode === 'PRINT') {
+      return (
+          <div className="min-h-screen bg-white p-8">
+              <div className="max-w-6xl mx-auto no-print mb-8 flex justify-between items-center">
+                  <h1 className="text-2xl font-bold text-slate-800">Modo de Impressão ({cards.length} cartelas)</h1>
+                  <div className="flex gap-4">
+                      <button onClick={() => setViewMode('GENERATOR')} className="flex items-center gap-2 px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 border border-slate-300">
+                          <ArrowLeft className="w-4 h-4"/> Voltar
+                      </button>
+                      <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm">
+                          <Printer className="w-4 h-4"/> Imprimir
+                      </button>
+                  </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 print:grid-cols-2 print:gap-4">
+                  {cards.map(card => (
+                      <PrintableCard key={card.id} card={card} />
+                  ))}
+              </div>
+          </div>
+      )
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 font-sans no-print-ui">
+      {/* Navbar */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black">B</div>
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden md:block">Bingo Master <span className="text-blue-600">Pro</span></h1>
+          </div>
+          
+          {/* Tabs */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-lg mx-4">
+              <button 
+                onClick={() => setViewMode('GENERATOR')}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${viewMode === 'GENERATOR' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                  <LayoutGrid className="w-4 h-4" /> <span className="hidden sm:inline">Gerador</span>
+              </button>
+              <button 
+                onClick={() => setViewMode('GAME')}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${viewMode === 'GAME' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                  <Gamepad2 className="w-4 h-4" /> <span className="hidden sm:inline">Jogo</span>
+              </button>
+              <button 
+                onClick={() => setViewMode('PRINT')}
+                className="px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 text-slate-600 hover:text-slate-900"
+              >
+                  <Printer className="w-4 h-4" /> <span className="hidden sm:inline">Imprimir</span>
+              </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+             <button 
+                onClick={handleReset}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                title="Reiniciar Sorteio"
+            >
+                <RotateCcw className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 w-full bg-slate-50 no-print">
+        {viewMode === 'GENERATOR' && renderGeneratorView()}
+        {viewMode === 'GAME' && renderGameView()}
       </main>
     </div>
   );

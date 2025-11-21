@@ -43,7 +43,12 @@ const MasterBoard: React.FC<MasterBoardProps> = ({ drawnNumbers, lastDrawn }) =>
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-      <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Mesa de Controle</h3>
+      <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Mesa de Controle</h3>
+          <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded-md border border-slate-200">
+              {drawnNumbers.size} Sorteados
+          </span>
+      </div>
       <div className="space-y-1">
         {renderRange('B', 1, 15, 'text-blue-500')}
         {renderRange('I', 16, 30, 'text-red-500')}
