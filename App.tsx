@@ -8,7 +8,7 @@ import { CardPreview } from './components/CardPreview';
 import { 
   Play, RotateCcw, Plus, UserPlus, Trophy, Printer, 
   Users, ArrowLeft, Check, Keyboard, Dices, LayoutGrid, 
-  Gamepad2, Trash2, Upload, ImageIcon
+  Gamepad2, Trash2, Upload, ImageIcon, Settings
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -113,7 +113,9 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    if (window.confirm("Tem certeza que deseja reiniciar o sorteio? Todas as marcações serão perdidas.")) {
+    if (cards.length === 0 && drawnNumbers.size === 0) return;
+    
+    if (window.confirm("Tem certeza que deseja reiniciar o sorteio? As cartelas serão MANTIDAS, mas as marcações serão zeradas.")) {
       setStatus('SETUP');
       setDrawnNumbers(new Set());
       setLastDrawn(null);
@@ -125,7 +127,9 @@ const App: React.FC = () => {
   const handleClearPlayers = () => {
       if (window.confirm("Isso apagará DEFINITIVAMENTE todas as cartelas geradas. Continuar?")) {
         setCards([]);
-        handleReset();
+        setStatus('SETUP');
+        setDrawnNumbers(new Set());
+        setLastDrawn(null);
       }
   };
 
@@ -211,6 +215,31 @@ const App: React.FC = () => {
                 </div>
             </div>
 
+            {/* Game Management Section */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border-t-4 border-purple-500">
+                <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-purple-500" /> Gestão da Partida
+                </h2>
+                <div className="space-y-3">
+                     <button
+                        onClick={handleReset}
+                        disabled={drawnNumbers.size === 0}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium border border-slate-200 disabled:opacity-50"
+                        title="Mantém as cartelas, apaga o sorteio"
+                    >
+                        <RotateCcw className="w-4 h-4" /> Reiniciar Sorteio
+                    </button>
+                    <button
+                        onClick={handleClearPlayers}
+                        disabled={cards.length === 0}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium border border-red-100 disabled:opacity-50"
+                        title="Apaga tudo e começa do zero"
+                    >
+                        <Trash2 className="w-4 h-4" /> Novo Jogo (Limpar Tudo)
+                    </button>
+                </div>
+            </div>
+
             <div className="bg-white p-6 rounded-xl shadow-sm border-t-4 border-brand-blue">
                 <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <UserPlus className="w-5 h-5 text-brand-blue" /> Adicionar Individual
@@ -269,14 +298,14 @@ const App: React.FC = () => {
         </div>
 
         {/* List Column */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[calc(100vh-150px)]">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[calc(100vh-100px)]">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
                 <h2 className="font-bold text-slate-700">Cartelas Geradas ({cards.length})</h2>
-                {cards.length > 0 && (
-                    <button onClick={handleClearPlayers} className="text-sm text-red-500 hover:text-red-700 flex items-center gap-1 px-3 py-1 rounded hover:bg-red-50 transition-colors">
-                        <Trash2 className="w-4 h-4" /> Limpar Tudo
-                    </button>
-                )}
+                <div className="text-xs text-slate-400 flex items-center gap-1">
+                   {cards.length > 0 && (
+                       <span>Pronto para imprimir ou jogar</span>
+                   )}
+                </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 bg-slate-100/50">
                 {cards.length === 0 ? (
@@ -493,7 +522,8 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2">
              <button 
                 onClick={handleReset}
-                className="p-2 text-slate-400 hover:text-brand-blue hover:bg-blue-50 rounded-full transition-colors"
+                disabled={drawnNumbers.size === 0}
+                className={`p-2 rounded-full transition-colors ${drawnNumbers.size === 0 ? 'text-slate-200' : 'text-slate-400 hover:text-brand-blue hover:bg-blue-50'}`}
                 title="Reiniciar Sorteio"
             >
                 <RotateCcw className="w-5 h-5" />
