@@ -5,13 +5,16 @@ import MasterBoard from './components/MasterBoard';
 import StatsPanel from './components/StatsPanel';
 import { PrintableCard } from './components/PrintableCard';
 import { CardPreview } from './components/CardPreview';
-import { 
-  Play, RotateCcw, Plus, UserPlus, Trophy, Printer, 
-  Users, ArrowLeft, Check, Keyboard, Dices, LayoutGrid, 
-  Gamepad2, Trash2, Upload, ImageIcon, Settings
+import LoginPage from './pages/LoginPage';
+import { useAuth } from './contexts/AuthContext';
+import {
+  Play, RotateCcw, Plus, UserPlus, Trophy, Printer,
+  Users, ArrowLeft, Check, Keyboard, Dices, LayoutGrid,
+  Gamepad2, Trash2, Upload, ImageIcon, Settings, LogOut, Loader
 } from 'lucide-react';
 
 const App: React.FC = () => {
+  const { user, loading, signOut } = useAuth();
   const [status, setStatus] = useState<GameStatus>('SETUP');
   const [viewMode, setViewMode] = useState<'GAME' | 'GENERATOR' | 'PRINT'>('GENERATOR');
   const [drawnNumbers, setDrawnNumbers] = useState<Set<number>>(new Set());
@@ -449,6 +452,21 @@ const App: React.FC = () => {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-brand-blue/10 to-brand-lime/10">
+        <div className="flex flex-col items-center gap-3">
+          <Loader className="w-8 h-8 text-brand-blue animate-spin" />
+          <p className="text-slate-600 font-medium">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
   if (viewMode === 'PRINT') {
       return (
           <div className="min-h-screen bg-white p-8">
@@ -463,7 +481,7 @@ const App: React.FC = () => {
                       </button>
                   </div>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 print:grid-cols-2 print:gap-4">
                   {cards.map(card => (
                       <PrintableCard key={card.id} card={card} logoSrc={customLogo} />
@@ -472,6 +490,16 @@ const App: React.FC = () => {
           </div>
       )
   }
+
+  const handleLogout = async () => {
+    if (window.confirm('Tem certeza que deseja sair?')) {
+      try {
+        await signOut();
+      } catch (error) {
+        console.error('Erro ao fazer logout:', error);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans no-print-ui">
@@ -520,13 +548,20 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-             <button 
+             <button
                 onClick={handleReset}
                 disabled={drawnNumbers.size === 0}
                 className={`p-2 rounded-full transition-colors ${drawnNumbers.size === 0 ? 'text-slate-200' : 'text-slate-400 hover:text-brand-blue hover:bg-blue-50'}`}
                 title="Reiniciar Sorteio"
             >
                 <RotateCcw className="w-5 h-5" />
+            </button>
+            <button
+                onClick={handleLogout}
+                className="p-2 rounded-full transition-colors text-slate-400 hover:text-red-600 hover:bg-red-50"
+                title={`Sair (${user?.email})`}
+            >
+                <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
