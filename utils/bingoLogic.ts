@@ -1,4 +1,4 @@
-import { BingoCard, Cell } from '../types';
+import type { BingoCard, Cell } from '../types.ts';
 
 // Helper to generate unique random numbers within a range
 const getRandomNumbers = (count: number, min: number, max: number): number[] => {

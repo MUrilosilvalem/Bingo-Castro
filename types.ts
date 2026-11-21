@@ -15,12 +15,38 @@ export interface BingoCard {
 }
 
 export type GameStatus = 'SETUP' | 'PLAYING' | 'FINISHED';
+export type ViewMode = 'GAME' | 'GENERATOR' | 'PRINT';
+export type DrawMode = 'AUTO' | 'MANUAL';
 
 export interface GameState {
   status: GameStatus;
   drawnNumbers: number[];
   currentNumber: number | null;
   cards: BingoCard[];
+}
+
+export interface PastGameRecord {
+  id: string;
+  totalCards: number;
+  drawnNumbers: number[];
+  winners: { id: string; playerName: string }[];
+  finishedAt: string;
+}
+
+export interface GameSessionSettings {
+  status: GameStatus;
+  drawMode: DrawMode;
+  batchPrefix: string;
+  batchQuantity: number;
+  customLogo: string | null;
+}
+
+export interface FullGamePayload {
+  dbEngine: 'postgres' | 'sqlite';
+  session: GameSessionSettings;
+  drawHistory: number[];
+  cards: BingoCard[];
+  pastGames: PastGameRecord[];
 }
 
 export const COLUMNS = ['B', 'I', 'N', 'G', 'O'];

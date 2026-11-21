@@ -1,34 +1,54 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { BingoCard, GameStatus } from './types';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { BingoCard, DrawMode, GameStatus, PastGameRecord, ViewMode } from './types';
 import { generateCard, updateCardStats } from './utils/bingoLogic';
+import { api } from './utils/api';
+import { loadBingoState, loadCustomLogo } from './utils/storage';
 import MasterBoard from './components/MasterBoard';
 import StatsPanel from './components/StatsPanel';
 import { PrintableCard } from './components/PrintableCard';
 import { CardPreview } from './components/CardPreview';
-import {
-  Play, RotateCcw, Plus, UserPlus, Trophy, Printer,
-  Users, ArrowLeft, Check, Keyboard, Dices, LayoutGrid,
-  Gamepad2, Trash2, Upload, ImageIcon, Settings
+import { 
+  Play, RotateCcw, Plus, UserPlus, Trophy, Printer, 
+  Users, ArrowLeft, Check, Keyboard, Dices, LayoutGrid, 
+  Gamepad2, Trash2, Upload, ImageIcon, Settings, X, History
 } from 'lucide-react';
 
+const VIEW_MODE_KEY = 'bingo_master_view_mode_v1';
+
+const getInitialViewMode = (): ViewMode => {
+  try {
+    const saved = window.localStorage.getItem(VIEW_MODE_KEY);
+    if (saved === 'GAME' || saved === 'GENERATOR' || saved === 'PRINT') return saved;
+  } catch {
+    // ignore
+  }
+  return 'GENERATOR';
+};
+
 const App: React.FC = () => {
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [status, setStatus] = useState<GameStatus>('SETUP');
-  const [viewMode, setViewMode] = useState<'GAME' | 'GENERATOR' | 'PRINT'>('GENERATOR');
-  const [drawnNumbers, setDrawnNumbers] = useState<Set<number>>(new Set());
-  const [lastDrawn, setLastDrawn] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode);
+  const [drawHistory, setDrawHistory] = useState<number[]>([]);
   const [cards, setCards] = useState<BingoCard[]>([]);
+  const [pastGames, setPastGames] = useState<PastGameRecord[]>([]);
   
   // Setup State
   const [newPlayerName, setNewPlayerName] = useState('');
   const [batchQuantity, setBatchQuantity] = useState<number>(10);
   const [batchPrefix, setBatchPrefix] = useState<string>('Cartela');
   const [customLogo, setCustomLogo] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const shouldSpeakRef = useRef<boolean>(false);
 
   // Draw Mode State (Auto vs Manual)
-  const [drawMode, setDrawMode] = useState<'AUTO' | 'MANUAL'>('AUTO');
+  const [drawMode, setDrawMode] = useState<DrawMode>('AUTO');
   const [manualInput, setManualInput] = useState<string>('');
   const [manualError, setManualError] = useState<string | null>(null);
+
+  const drawnNumbers = useMemo(() => new Set<number>(drawHistory), [drawHistory]);
+  const lastDrawn = drawHistory.length > 0 ? drawHistory[drawHistory.length - 1] : null;
 
   // Derived state to check if game is over
   const hasWinner = cards.some(c => c.isWinner);
@@ -37,40 +57,93 @@ const App: React.FC = () => {
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCustomLogo(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const dataUrl = reader.result as string;
+      setActionError(null);
+      try {
+        await api.updateSettings({ customLogo: dataUrl });
+        setCustomLogo(dataUrl);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Não foi possível salvar a logo.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = async () => {
+    setActionError(null);
+    try {
+      await api.updateSettings({ customLogo: null });
+      setCustomLogo(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Erro ao remover logo.');
     }
   };
 
-  const handleAddPlayer = (e?: React.FormEvent) => {
+  const handleAddPlayer = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!newPlayerName.trim()) return;
-    
-    const newCard = generateCard(newPlayerName.trim());
-    setCards(prev => [...prev, newCard]);
+    setActionError(null);
+
+    const rawCard = generateCard(newPlayerName.trim());
+    const optimisticCard = drawnNumbers.size > 0 ? updateCardStats(rawCard, drawnNumbers) : rawCard;
     setNewPlayerName('');
     nameInputRef.current?.focus();
+
+    try {
+      const res = await api.addCard(optimisticCard);
+      setCards(prev => [...prev, ...res.cards]);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Erro ao salvar cartela.');
+    }
   };
 
-  const handleBatchGenerate = (e: React.FormEvent) => {
+  const handleBatchGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const quantity = Math.max(1, Math.min(100, batchQuantity)); // Limit to 100 at a time
+    setActionError(null);
+    const quantity = Math.max(1, Math.min(100, batchQuantity));
     
     const newCards: BingoCard[] = [];
     for (let i = 0; i < quantity; i++) {
         const idNum = cards.length + i + 1;
-        newCards.push(generateCard(`${batchPrefix} #${idNum}`));
+        const rawCard = generateCard(`${batchPrefix} #${idNum}`);
+        newCards.push(drawnNumbers.size > 0 ? updateCardStats(rawCard, drawnNumbers) : rawCard);
     }
-    setCards(prev => [...prev, ...newCards]);
+
+    try {
+      const res = await api.addCardsBatch(newCards);
+      setCards(prev => [...prev, ...res.cards]);
+      await api.updateSettings({ batchPrefix, batchQuantity: quantity });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Erro ao gerar lote de cartelas.');
+    }
   };
 
-  const handleDeleteCard = (id: string) => {
-    setCards(prev => prev.filter(c => c.id !== id));
+  const handleDeleteCard = async (id: string) => {
+    setActionError(null);
+    try {
+      await api.deleteCard(id);
+      setCards(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Erro ao excluir cartela.');
+    }
   };
+
+  const processNewNumber = useCallback(async (num: number) => {
+      shouldSpeakRef.current = true;
+      setManualError(null);
+      try {
+        const res = await api.addDraw(num);
+        setDrawHistory(res.drawHistory);
+        setStatus(res.status);
+      } catch (err) {
+        shouldSpeakRef.current = false;
+        setManualError(err instanceof Error ? err.message : 'Erro ao salvar número sorteado.');
+      }
+  }, []);
 
   const handleDrawNumber = useCallback(() => {
     if (drawnNumbers.size >= 75 || hasWinner) return;
@@ -81,12 +154,12 @@ const App: React.FC = () => {
       candidate = Math.floor(Math.random() * 75) + 1;
     }
 
-    processNewNumber(candidate);
-  }, [drawnNumbers, hasWinner]);
+    void processNewNumber(candidate);
+  }, [drawnNumbers, hasWinner, processNewNumber]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      const num = parseInt(manualInput);
+      const num = parseInt(manualInput, 10);
       
       if (isNaN(num) || num < 1 || num > 75) {
           setManualError('Digite entre 1 e 75');
@@ -99,41 +172,149 @@ const App: React.FC = () => {
 
       setManualError(null);
       setManualInput('');
-      processNewNumber(num);
+      void processNewNumber(num);
   };
 
-  const processNewNumber = (num: number) => {
-      setLastDrawn(num);
-      setDrawnNumbers(prev => {
-          const newSet = new Set(prev);
-          newSet.add(num);
-          return newSet;
-      });
-      setStatus('PLAYING');
-  };
+  const handleUndoLast = useCallback(async () => {
+    if (drawHistory.length === 0) return;
+    try {
+      const res = await api.undoLastDraw();
+      setDrawHistory(res.drawHistory);
+      setStatus(res.status);
+      if (res.drawHistory.length === 0) {
+        setCards(prev =>
+          prev.map(c => ({
+            ...c,
+            missingCount: 24,
+            isWinner: false,
+            grid: c.grid.map(row => row.map(cell => ({ ...cell, isMarked: cell.number === 'FREE' }))),
+          }))
+        );
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Erro ao desfazer número.');
+    }
+  }, [drawHistory.length]);
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (cards.length === 0 && drawnNumbers.size === 0) return;
     
-    if (window.confirm("Tem certeza que deseja reiniciar o sorteio? As cartelas serão MANTIDAS, mas as marcações serão zeradas.")) {
-      setStatus('SETUP');
-      setDrawnNumbers(new Set());
-      setLastDrawn(null);
-      // Reset cards stats but keep players
-      setCards(prev => prev.map(c => ({...c, missingCount: 24, isWinner: false, grid: c.grid.map(row => row.map(cell => ({...cell, isMarked: cell.number === 'FREE'}))) })));
+    if (window.confirm("Tem certeza que deseja reiniciar o sorteio? As cartelas serão MANTIDAS, o sorteio atual será arquivado no histórico e as marcações serão zeradas.")) {
+      try {
+        const fresh = await api.resetDraws();
+        setStatus(fresh.session.status);
+        setDrawHistory(fresh.drawHistory);
+        setCards(fresh.cards);
+        setPastGames(fresh.pastGames);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Erro ao reiniciar sorteio.');
+      }
     }
   };
 
-  const handleClearPlayers = () => {
-      if (window.confirm("Isso apagará DEFINITIVAMENTE todas as cartelas geradas. Continuar?")) {
-        setCards([]);
-        setStatus('SETUP');
-        setDrawnNumbers(new Set());
-        setLastDrawn(null);
+  const handleClearPlayers = async () => {
+      if (window.confirm("Isso apagará DEFINITIVAMENTE todas as cartelas atuais e zerará a partida. Continuar?")) {
+        try {
+          const fresh = await api.clearAll();
+          setStatus(fresh.session.status);
+          setDrawHistory(fresh.drawHistory);
+          setCards(fresh.cards);
+          setPastGames(fresh.pastGames);
+        } catch (err) {
+          setActionError(err instanceof Error ? err.message : 'Erro ao limpar partida.');
+        }
       }
   };
 
+  const handleClearPastGames = async () => {
+    if (window.confirm("Deseja apagar o registro das partidas anteriores?")) {
+      try {
+        await api.clearPastGames();
+        setPastGames([]);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Erro ao limpar histórico.');
+      }
+    }
+  };
+
+  const handleDrawModeChange = async (mode: DrawMode) => {
+    setDrawMode(mode);
+    try {
+      await api.updateSettings({ drawMode: mode });
+    } catch {
+      // non-fatal
+    }
+  };
+
   // --- Effects ---
+
+  // Initial load from database (with one-time migration of legacy localStorage data if DB is empty)
+  useEffect(() => {
+    let active = true;
+
+    const init = async () => {
+      try {
+        let payload = await api.getGame();
+
+        const isDbEmpty =
+          payload.cards.length === 0 &&
+          payload.drawHistory.length === 0 &&
+          payload.pastGames.length === 0 &&
+          !payload.session.customLogo;
+
+        if (isDbEmpty) {
+          const legacy = loadBingoState();
+          const legacyLogo = loadCustomLogo();
+          if (legacy.cards.length > 0 || legacy.drawHistory.length > 0 || legacyLogo) {
+            if (legacy.cards.length > 0) {
+              await api.addCardsBatch(legacy.cards);
+            }
+            for (const num of legacy.drawHistory) {
+              await api.addDraw(num);
+            }
+            await api.updateSettings({
+              drawMode: legacy.drawMode,
+              batchPrefix: legacy.batchPrefix,
+              batchQuantity: legacy.batchQuantity,
+              customLogo: legacyLogo,
+            });
+            window.localStorage.removeItem('bingo_master_state_v1');
+            window.localStorage.removeItem('bingo_master_logo_v1');
+            payload = await api.getGame();
+          }
+        }
+
+        if (!active) return;
+        setStatus(payload.session.status);
+        setDrawMode(payload.session.drawMode);
+        setBatchPrefix(payload.session.batchPrefix);
+        setBatchQuantity(payload.session.batchQuantity);
+        setCustomLogo(payload.session.customLogo);
+        setDrawHistory(payload.drawHistory);
+        setCards(payload.cards);
+        setPastGames(payload.pastGames);
+      } catch (err) {
+        if (!active) return;
+        setActionError(err instanceof Error ? err.message : 'Erro ao conectar ao banco de dados.');
+      } finally {
+        if (active) setIsLoaded(true);
+      }
+    };
+
+    void init();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Keep active view tab across page reloads
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(VIEW_MODE_KEY, viewMode);
+    } catch {
+      // ignore
+    }
+  }, [viewMode]);
 
   // Update card stats whenever a number is drawn
   useEffect(() => {
@@ -144,9 +325,10 @@ const App: React.FC = () => {
     );
   }, [drawnNumbers, status]);
 
-  // Auto-play sound effect
+  // Auto-play sound effect only when a new number is actively drawn
   useEffect(() => {
-    if (lastDrawn) {
+    if (lastDrawn && shouldSpeakRef.current) {
+        shouldSpeakRef.current = false;
         if ('speechSynthesis' in window) {
             const utterance = new SpeechSynthesisUtterance(lastDrawn.toString());
             utterance.lang = 'pt-BR';
@@ -204,13 +386,25 @@ const App: React.FC = () => {
                     <label className="block text-sm text-slate-600">
                         Carregue a imagem da logo para aparecer no topo e nas impressões.
                     </label>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                         <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg border border-slate-300 flex items-center gap-2 text-sm font-medium transition-colors">
                             <Upload className="w-4 h-4" />
                             Escolher Arquivo
                             <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                         </label>
-                        {customLogo && <span className="text-xs text-green-600 font-bold flex items-center gap-1"><Check className="w-3 h-3"/> Carregada</span>}
+                        {customLogo && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-green-600 font-bold flex items-center gap-1"><Check className="w-3 h-3"/> Carregada</span>
+                            <button
+                              type="button"
+                              onClick={handleRemoveLogo}
+                              className="text-xs text-slate-500 hover:text-red-600 flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors"
+                              title="Remover logo personalizada"
+                            >
+                              <X className="w-3 h-3" /> Remover
+                            </button>
+                          </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -283,7 +477,7 @@ const App: React.FC = () => {
                             min="1" 
                             max="100"
                             value={batchQuantity}
-                            onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
+                            onChange={(e) => setBatchQuantity(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))}
                             className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
                         />
                     </div>
@@ -295,6 +489,45 @@ const App: React.FC = () => {
                     </button>
                 </form>
             </div>
+
+            {pastGames.length > 0 && (
+              <div className="bg-white p-6 rounded-xl shadow-sm border-t-4 border-slate-500">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <History className="w-5 h-5 text-slate-600" /> Partidas Anteriores
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={handleClearPastGames}
+                    className="text-xs text-slate-400 hover:text-red-600 transition-colors"
+                    title="Limpar histórico de partidas"
+                  >
+                    Limpar
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {pastGames.map((game) => (
+                    <div
+                      key={game.id}
+                      className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1"
+                    >
+                      <div className="flex items-center justify-between text-slate-500">
+                        <span>{new Date(game.finishedAt).toLocaleString('pt-BR')}</span>
+                        <span className="font-semibold">{game.drawnNumbers.length} bolas • {game.totalCards} cartelas</span>
+                      </div>
+                      {game.winners.length > 0 ? (
+                        <div className="font-semibold text-brand-blue flex items-center gap-1 flex-wrap">
+                          <Trophy className="w-3.5 h-3.5 text-brand-lime shrink-0" />
+                          <span>Vencedor(es): {game.winners.map((w) => w.playerName).join(', ')}</span>
+                        </div>
+                      ) : (
+                        <div className="text-slate-400 italic">Encerrada sem vencedor</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
         </div>
 
         {/* List Column */}
@@ -347,13 +580,13 @@ const App: React.FC = () => {
                 {/* Mode Toggle */}
                 <div className="absolute top-4 right-4 flex bg-slate-100 rounded-lg p-1 z-20">
                     <button 
-                        onClick={() => setDrawMode('AUTO')}
+                        onClick={() => handleDrawModeChange('AUTO')}
                         className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${drawMode === 'AUTO' ? 'bg-white shadow text-brand-blue' : 'text-slate-500'}`}
                     >
                         <Dices className="w-3 h-3"/> Auto
                     </button>
                     <button 
-                         onClick={() => setDrawMode('MANUAL')}
+                         onClick={() => handleDrawModeChange('MANUAL')}
                          className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${drawMode === 'MANUAL' ? 'bg-white shadow text-brand-blue' : 'text-slate-500'}`}
                     >
                         <Keyboard className="w-3 h-3"/> Manual
@@ -425,7 +658,12 @@ const App: React.FC = () => {
             </div>
 
             {/* Master Board */}
-            <MasterBoard drawnNumbers={drawnNumbers} lastDrawn={lastDrawn} />
+            <MasterBoard
+              drawnNumbers={drawnNumbers}
+              lastDrawn={lastDrawn}
+              drawHistory={drawHistory}
+              onUndoLast={handleUndoLast}
+            />
         </div>
 
         {/* Right Column: Stats / Ranking (Expanded) */}
@@ -449,7 +687,6 @@ const App: React.FC = () => {
     </div>
   );
 
-
   if (viewMode === 'PRINT') {
       return (
           <div className="min-h-screen bg-white p-8">
@@ -464,7 +701,7 @@ const App: React.FC = () => {
                       </button>
                   </div>
               </div>
-
+              
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 print:grid-cols-2 print:gap-4">
                   {cards.map(card => (
                       <PrintableCard key={card.id} card={card} logoSrc={customLogo} />
@@ -473,7 +710,6 @@ const App: React.FC = () => {
           </div>
       )
   }
-
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans no-print-ui">
@@ -522,7 +758,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-             <button
+             <button 
                 onClick={handleReset}
                 disabled={drawnNumbers.size === 0}
                 className={`p-2 rounded-full transition-colors ${drawnNumbers.size === 0 ? 'text-slate-200' : 'text-slate-400 hover:text-brand-blue hover:bg-blue-50'}`}
@@ -535,8 +771,30 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 w-full bg-slate-50 no-print">
-        {viewMode === 'GENERATOR' && renderGeneratorView()}
-        {viewMode === 'GAME' && renderGameView()}
+        {actionError && (
+          <div className="max-w-7xl mx-auto px-6 pt-4">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-lg text-sm flex items-center justify-between">
+              <span>{actionError}</span>
+              <button
+                type="button"
+                onClick={() => setActionError(null)}
+                className="text-red-500 hover:text-red-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        {!isLoaded ? (
+          <div className="max-w-7xl mx-auto p-12 text-center text-slate-400">
+            Carregando dados salvos...
+          </div>
+        ) : (
+          <>
+            {viewMode === 'GENERATOR' && renderGeneratorView()}
+            {viewMode === 'GAME' && renderGameView()}
+          </>
+        )}
       </main>
     </div>
   );

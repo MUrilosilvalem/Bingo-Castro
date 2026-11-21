@@ -1,0 +1,18 @@
+services:
+  bingo:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      SQLITE_PATH: /app/data/bingo.db
+      # Para usar PostgreSQL no Easypanel, informe a URL abaixo e crie o serviço Postgres:
+      # DATABASE_URL: postgres://usuario:senha@postgres:5432/bingo
+      # DATABASE_SSL: "false"
+    volumes:
+      - bingo_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  bingo_data:
