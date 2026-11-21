@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { BingoCard, DrawMode, GameStatus, PastGameRecord, ViewMode } from './types';
-import { generateCard, updateCardStats } from './utils/bingoLogic';
+import { generateBatchCards, generateCard, updateCardStats } from './utils/bingoLogic';
 import { api } from './utils/api';
 import { loadBingoState, loadCustomLogo } from './utils/storage';
 import MasterBoard from './components/MasterBoard';
@@ -38,9 +38,12 @@ const App: React.FC = () => {
   const [batchQuantity, setBatchQuantity] = useState<number>(10);
   const [batchPrefix, setBatchPrefix] = useState<string>('Cartela');
   const [customLogo, setCustomLogo] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const shouldSpeakRef = useRef<boolean>(false);
+  const drawingLockRef = useRef<boolean>(false);
 
   // Draw Mode State (Auto vs Manual)
   const [drawMode, setDrawMode] = useState<DrawMode>('AUTO');
@@ -51,32 +54,74 @@ const App: React.FC = () => {
   const lastDrawn = drawHistory.length > 0 ? drawHistory[drawHistory.length - 1] : null;
 
   // Derived state to check if game is over
-  const hasWinner = cards.some(c => c.isWinner);
+  const winnerCount = useMemo(() => cards.filter(c => c.isWinner).length, [cards]);
+  const hasWinner = winnerCount > 0;
 
   // --- Actions ---
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const normalizeLogoDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Falha ao ler arquivo de imagem.'));
+      reader.onload = () => {
+        const rawDataUrl = reader.result as string;
+        const isAllowedRaster =
+          /^data:image\/(png|jpeg|jpg|gif|webp|bmp);base64,/.test(rawDataUrl);
+
+        if (isAllowedRaster && rawDataUrl.length <= 1_200_000) {
+          resolve(rawDataUrl);
+          return;
+        }
+
+        const img = new Image();
+        img.onerror = () => reject(new Error('Formato de imagem não suportado.'));
+        img.onload = () => {
+          const maxDim = 800;
+          const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
+          const width = Math.max(1, Math.round((img.width || 400) * scale));
+          const height = Math.max(1, Math.round((img.height || 200) * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Não foi possível processar a imagem.'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const pngUrl = canvas.toDataURL('image/png');
+          if (pngUrl.length <= 4_500_000) {
+            resolve(pngUrl);
+          } else {
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+          }
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = '';
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const dataUrl = reader.result as string;
-      setActionError(null);
-      try {
-        await api.updateSettings({ customLogo: dataUrl });
-        setCustomLogo(dataUrl);
-      } catch (err) {
-        setActionError(err instanceof Error ? err.message : 'Não foi possível salvar a logo.');
-      }
-    };
-    reader.readAsDataURL(file);
+    setActionError(null);
+    try {
+      const dataUrl = await normalizeLogoDataUrl(file);
+      await api.updateSettings({ customLogo: dataUrl });
+      setLogoError(false);
+      setCustomLogo(dataUrl);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Não foi possível salvar a logo.');
+    }
   };
 
   const handleRemoveLogo = async () => {
     setActionError(null);
     try {
       await api.updateSettings({ customLogo: null });
+      setLogoError(false);
       setCustomLogo(null);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Erro ao remover logo.');
@@ -88,7 +133,7 @@ const App: React.FC = () => {
     if (!newPlayerName.trim()) return;
     setActionError(null);
 
-    const rawCard = generateCard(newPlayerName.trim());
+    const rawCard = generateCard(newPlayerName.trim(), cards);
     const optimisticCard = drawnNumbers.size > 0 ? updateCardStats(rawCard, drawnNumbers) : rawCard;
     setNewPlayerName('');
     nameInputRef.current?.focus();
@@ -106,12 +151,16 @@ const App: React.FC = () => {
     setActionError(null);
     const quantity = Math.max(1, Math.min(100, batchQuantity));
     
-    const newCards: BingoCard[] = [];
+    const names: string[] = [];
     for (let i = 0; i < quantity; i++) {
         const idNum = cards.length + i + 1;
-        const rawCard = generateCard(`${batchPrefix} #${idNum}`);
-        newCards.push(drawnNumbers.size > 0 ? updateCardStats(rawCard, drawnNumbers) : rawCard);
+        names.push(`${batchPrefix} #${idNum}`);
     }
+    const generated = generateBatchCards(names, cards);
+    const newCards =
+      drawnNumbers.size > 0
+        ? generated.map(card => updateCardStats(card, drawnNumbers))
+        : generated;
 
     try {
       const res = await api.addCardsBatch(newCards);
@@ -133,20 +182,28 @@ const App: React.FC = () => {
   };
 
   const processNewNumber = useCallback(async (num: number) => {
+      if (drawingLockRef.current || hasWinner) return;
+      drawingLockRef.current = true;
+      setIsDrawing(true);
       shouldSpeakRef.current = true;
       setManualError(null);
       try {
         const res = await api.addDraw(num);
+        const nextSet = new Set<number>(res.drawHistory);
         setDrawHistory(res.drawHistory);
         setStatus(res.status);
+        setCards(currentCards => currentCards.map(card => updateCardStats(card, nextSet)));
       } catch (err) {
         shouldSpeakRef.current = false;
         setManualError(err instanceof Error ? err.message : 'Erro ao salvar número sorteado.');
+      } finally {
+        drawingLockRef.current = false;
+        setIsDrawing(false);
       }
-  }, []);
+  }, [hasWinner]);
 
   const handleDrawNumber = useCallback(() => {
-    if (drawnNumbers.size >= 75 || hasWinner) return;
+    if (drawingLockRef.current || drawnNumbers.size >= 75 || hasWinner) return;
 
     // Pick a number that hasn't been drawn
     let candidate = Math.floor(Math.random() * 75) + 1;
@@ -159,6 +216,7 @@ const App: React.FC = () => {
 
   const handleManualSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      if (drawingLockRef.current || hasWinner) return;
       const num = parseInt(manualInput, 10);
       
       if (isNaN(num) || num < 1 || num > 75) {
@@ -601,10 +659,10 @@ const App: React.FC = () => {
                     {drawMode === 'AUTO' ? (
                         <button
                             onClick={handleDrawNumber}
-                            disabled={hasWinner || drawnNumbers.size >= 75}
+                            disabled={hasWinner || isDrawing || drawnNumbers.size >= 75}
                             className={`
                                 w-full max-w-xs py-4 rounded-xl font-bold text-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-3
-                                ${hasWinner 
+                                ${hasWinner || isDrawing
                                     ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
                                     : 'bg-brand-blue hover:bg-brand-blue/90 text-white shadow-brand-blue/30'}
                             `}
@@ -614,7 +672,7 @@ const App: React.FC = () => {
                             ) : (
                                 <>
                                     <Play className="w-6 h-6 fill-current" />
-                                    SORTEAR
+                                    {isDrawing ? 'SORTEANDO...' : 'SORTEAR'}
                                 </>
                             )}
                         </button>
@@ -631,12 +689,13 @@ const App: React.FC = () => {
                                         setManualError(null);
                                     }}
                                     placeholder="#"
-                                    className="flex-1 text-center text-2xl font-bold py-3 rounded-xl border-2 border-slate-200 focus:border-brand-blue focus:outline-none"
+                                    disabled={hasWinner || isDrawing}
+                                    className="flex-1 text-center text-2xl font-bold py-3 rounded-xl border-2 border-slate-200 focus:border-brand-blue focus:outline-none disabled:bg-slate-50"
                                     autoFocus
                                 />
                                 <button 
                                     type="submit"
-                                    disabled={!manualInput || hasWinner}
+                                    disabled={!manualInput || hasWinner || isDrawing}
                                     className="bg-brand-blue text-white rounded-xl px-6 hover:bg-brand-blue/90 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Check className="w-8 h-8" />
@@ -650,8 +709,9 @@ const App: React.FC = () => {
                     )}
 
                     {hasWinner && (
-                         <div className="animate-bounce text-brand-lime font-bold text-lg flex items-center gap-2">
-                             <Trophy className="w-6 h-6" /> TEMOS VENCEDOR!
+                         <div className="animate-bounce text-brand-lime font-bold text-lg flex items-center gap-2 text-center">
+                             <Trophy className="w-6 h-6 shrink-0" />
+                             {winnerCount > 1 ? `EMPATE! ${winnerCount} VENCEDORES!` : 'TEMOS VENCEDOR!'}
                          </div>
                     )}
                 </div>
@@ -719,19 +779,23 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
             {/* Logo Section */}
             <div className="h-20 relative flex items-center">
-                <img src={customLogo || "logo.png"} alt="Castro Laboratório" className="h-full w-auto object-contain" onError={(e) => {
-                    if (!customLogo) {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement!.querySelector('.fallback-logo')!.classList.remove('hidden');
-                    }
-                }} />
-                <div className="fallback-logo hidden flex items-center gap-2">
-                    <div className="w-20 h-20 bg-brand-blue rounded-lg flex items-center justify-center text-white font-black text-4xl">C</div>
-                    <div className="flex flex-col leading-tight">
-                        <span className="font-bold text-brand-blue text-3xl tracking-tight">CASTRO</span>
-                        <span className="text-sm text-slate-500 uppercase tracking-wider">Laboratório Clínico</span>
-                    </div>
-                </div>
+                {customLogo && !logoError ? (
+                  <img
+                    key={customLogo}
+                    src={customLogo}
+                    alt="Logo personalizada"
+                    className="h-full w-auto object-contain"
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  <div className="flex items-center gap-2">
+                      <div className="w-20 h-20 bg-brand-blue rounded-lg flex items-center justify-center text-white font-black text-4xl">C</div>
+                      <div className="flex flex-col leading-tight">
+                          <span className="font-bold text-brand-blue text-3xl tracking-tight">CASTRO</span>
+                          <span className="text-sm text-slate-500 uppercase tracking-wider">Laboratório Clínico</span>
+                      </div>
+                  </div>
+                )}
             </div>
           </div>
           

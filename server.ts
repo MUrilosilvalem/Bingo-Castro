@@ -9,8 +9,9 @@ import type { BingoCard, Cell, DrawMode, GameSessionSettings } from './types.ts'
 const PORT = Number(process.env.PORT) || 3000;
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-const SAFE_LOGO_DATA_URL_RE = /^data:image\/(png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/;
-const MAX_LOGO_LENGTH = 2_500_000;
+const SAFE_LOGO_DATA_URL_RE =
+  /^data:image\/(png|jpeg|jpg|gif|webp|bmp|avif|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/=]+$/;
+const MAX_LOGO_LENGTH = 5_000_000;
 
 const isValidGrid = (grid: unknown): grid is Cell[][] => {
   if (!Array.isArray(grid) || grid.length !== 5) return false;
@@ -52,7 +53,7 @@ async function startServer() {
   const app = express();
 
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '3mb' }));
+  app.use(express.json({ limit: '6mb' }));
 
   app.use('/api', (_req: Request, res: Response, next: NextFunction) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');

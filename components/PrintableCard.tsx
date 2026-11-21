@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BingoCard } from '../types';
 
 interface PrintableCardProps {
@@ -7,24 +7,31 @@ interface PrintableCardProps {
 }
 
 export const PrintableCard: React.FC<PrintableCardProps> = ({ card, logoSrc }) => {
+  const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [logoSrc]);
+
+  const effectiveLogo = logoSrc || 'logo.png';
+
   return (
     <div className="border-4 border-brand-blue p-4 break-inside-avoid bg-white text-black w-full max-w-[300px] mx-auto rounded-xl relative overflow-hidden">
       
       {/* Header with Logo */}
       <div className="text-center border-b-2 border-brand-blue/20 mb-3 pb-2 flex flex-col items-center">
          <div className="h-16 w-full flex items-center justify-center mb-1">
-            <img 
-                src={logoSrc || "logo.png"} 
-                alt="Castro Laboratório" 
-                className="h-full w-full object-contain" 
-                onError={(e) => {
-                    if (!logoSrc) {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement!.querySelector('.fallback-logo-print')!.classList.remove('hidden');
-                    }
-                }}
-            />
-            <span className="fallback-logo-print hidden font-black text-2xl text-brand-blue tracking-widest">CASTRO</span>
+            {!logoError ? (
+              <img 
+                  key={effectiveLogo}
+                  src={effectiveLogo} 
+                  alt="Castro Laboratório" 
+                  className="h-full w-full object-contain" 
+                  onError={() => setLogoError(true)}
+              />
+            ) : (
+              <span className="font-black text-2xl text-brand-blue tracking-widest">CASTRO</span>
+            )}
          </div>
          <div className="w-full flex justify-between text-xs font-semibold text-brand-blue uppercase px-1">
             <span className="truncate max-w-[150px]">{card.playerName}</span>
