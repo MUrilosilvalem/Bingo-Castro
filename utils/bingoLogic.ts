@@ -165,29 +165,40 @@ const buildCardFromColumns = (
 
 interface GenerationContext {
   freq: Uint16Array;
+  pairFreq: Uint16Array; // 76x76 symmetric upper-triangle counts
   signatures: CardSignature[];
 }
 
 const createGenerationContext = (existingCards: BingoCard[]): GenerationContext => {
   const freq = new Uint16Array(76);
+  const pairFreq = new Uint16Array(76 * 76);
   const signatures: CardSignature[] = [];
 
   for (const card of existingCards) {
-    for (const n of extractNumbersFromCard(card)) {
-      if (n >= 1 && n <= 75) freq[n]++;
+    const nums = extractNumbersFromCard(card).filter((n) => n >= 1 && n <= 75);
+    for (let i = 0; i < nums.length; i++) {
+      const a = nums[i];
+      freq[a]++;
+      for (let j = i + 1; j < nums.length; j++) {
+        const b = nums[j];
+        const lo = a < b ? a : b;
+        const hi = a < b ? b : a;
+        pairFreq[lo * 76 + hi]++;
+      }
     }
     signatures.push(signatureFromCard(card));
   }
 
-  return { freq, signatures };
+  return { freq, pairFreq, signatures };
 };
 
 const generateCardWithContext = (playerName: string, ctx: GenerationContext): BingoCard => {
-  const { freq, signatures } = ctx;
+  const { freq, pairFreq, signatures } = ctx;
   const attempts = signatures.length === 0 ? 1 : signatures.length <= 50 ? 220 : 80;
 
   let bestCols: [number[], number[], number[], number[], number[]] | null = null;
   let bestSig: CardSignature | null = null;
+  let bestNums: number[] | null = null;
   let bestScore = Infinity;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -227,22 +238,46 @@ const generateCardWithContext = (playerName: string, ctx: GenerationContext): Bi
       }
     }
 
+    const allNums = [...colB, ...colI, ...colN, ...colG, ...colO];
+    let pairSum = 0;
+    let maxPair = 0;
+    for (let i = 0; i < allNums.length; i++) {
+      const a = allNums[i];
+      for (let j = i + 1; j < allNums.length; j++) {
+        const b = allNums[j];
+        const count = pairFreq[(a < b ? a : b) * 76 + (a < b ? b : a)];
+        if (count > 0) {
+          pairSum += count;
+          if (count > maxPair) maxPair = count;
+        }
+      }
+    }
+
     const score =
       duplicatePenalty +
       maxOv * 100_000 +
       maxColOv * 5_000 +
+      maxPair * 2_000 +
+      pairSum * 15 +
       sumSq;
 
     if (score < bestScore) {
       bestScore = score;
       bestCols = [colB, colI, colN, colG, colO];
       bestSig = sig;
+      bestNums = allNums;
     }
   }
 
   const [colB, colI, colN, colG, colO] = bestCols!;
-  for (const n of [...colB, ...colI, ...colN, ...colG, ...colO]) {
-    freq[n]++;
+  const chosenNums = bestNums!;
+  for (let i = 0; i < chosenNums.length; i++) {
+    const a = chosenNums[i];
+    freq[a]++;
+    for (let j = i + 1; j < chosenNums.length; j++) {
+      const b = chosenNums[j];
+      pairFreq[(a < b ? a : b) * 76 + (a < b ? b : a)]++;
+    }
   }
   signatures.push(bestSig!);
 
@@ -265,14 +300,118 @@ export const generateBatchCards = (
   return playerNames.map((name) => generateCardWithContext(name, ctx));
 };
 
+export const pickNextAutoDrawNumber = (
+  cards: BingoCard[],
+  drawnNumbers: Set<number>
+): number | null => {
+  const pool: number[] = [];
+  for (let n = 1; n <= 75; n++) {
+    if (!drawnNumbers.has(n)) pool.push(n);
+  }
+  if (pool.length === 0) return null;
+
+  // Shuffle candidates uniformly
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = pool[i];
+    pool[i] = pool[j];
+    pool[j] = tmp;
+  }
+
+  if (cards.length <= 1) {
+    return pool[0];
+  }
+
+  // Remaining undrawn numbers per active card
+  const remPerCard: number[][] = [];
+  for (const card of cards) {
+    const rem: number[] = [];
+    for (const row of card.grid) {
+      for (const cell of row) {
+        if (typeof cell.number === 'number' && !drawnNumbers.has(cell.number)) {
+          rem.push(cell.number);
+        }
+      }
+    }
+    if (rem.length === 0) return pool[0]; // Already has winner
+    remPerCard.push(rem);
+  }
+
+  // Tiers:
+  // 0: <=1 winner AND no duplicate 1-away last number AND no duplicate 2-away pair
+  // 1: <=1 winner AND no duplicate 1-away last number
+  // 2: <=1 winner (avoids immediate simultaneous tie)
+  // 3: fallback if every ball causes >=2 simultaneous winners
+  let bestCandidate = pool[0];
+  let bestTier = 4;
+
+  for (let k = 0; k < pool.length; k++) {
+    const b = pool[k];
+    let wouldWin = 0;
+    const oneAwaySet = new Set<number>();
+    const twoAwaySet = new Set<number>();
+    let dupOneAway = false;
+    let dupTwoAway = false;
+
+    for (let c = 0; c < remPerCard.length; c++) {
+      const rem = remPerCard[c];
+      const len = rem.length;
+
+      if (len === 1) {
+        if (rem[0] === b) {
+          wouldWin++;
+        } else {
+          if (oneAwaySet.has(rem[0])) dupOneAway = true;
+          oneAwaySet.add(rem[0]);
+        }
+      } else if (len === 2) {
+        if (rem[0] === b || rem[1] === b) {
+          const other = rem[0] === b ? rem[1] : rem[0];
+          if (oneAwaySet.has(other)) dupOneAway = true;
+          oneAwaySet.add(other);
+        } else {
+          const lo = rem[0] < rem[1] ? rem[0] : rem[1];
+          const hi = rem[0] < rem[1] ? rem[1] : rem[0];
+          const key = lo * 100 + hi;
+          if (twoAwaySet.has(key)) dupTwoAway = true;
+          twoAwaySet.add(key);
+        }
+      } else if (len === 3) {
+        if (rem[0] === b || rem[1] === b || rem[2] === b) {
+          const a = rem[0] === b ? rem[1] : rem[0];
+          const d = rem[0] === b ? rem[2] : rem[1] === b ? rem[2] : rem[1];
+          const lo = a < d ? a : d;
+          const hi = a < d ? d : a;
+          const key = lo * 100 + hi;
+          if (twoAwaySet.has(key)) dupTwoAway = true;
+          twoAwaySet.add(key);
+        }
+      }
+    }
+
+    let tier = 3;
+    if (wouldWin <= 1) {
+      if (!dupOneAway && !dupTwoAway) tier = 0;
+      else if (!dupOneAway) tier = 1;
+      else tier = 2;
+    }
+
+    if (tier < bestTier) {
+      bestTier = tier;
+      bestCandidate = b;
+      if (tier === 0) break;
+    }
+  }
+
+  return bestCandidate;
+};
+
 export const updateCardStats = (card: BingoCard, drawnNumbers: Set<number>): BingoCard => {
   let markedCount = 0;
-  let hasFree = false;
 
   const newGrid = card.grid.map(row => 
     row.map(cell => {
       if (cell.number === 'FREE') {
-        hasFree = true;
         return { ...cell, isMarked: true };
       }
       const isMarked = drawnNumbers.has(cell.number as number);

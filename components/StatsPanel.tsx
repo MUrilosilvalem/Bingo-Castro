@@ -44,24 +44,24 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ cards }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-full overflow-y-auto flex flex-col">
-      <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
-        <h2 className="text-2xl font-bold text-brand-blue flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-brand-lime" />
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 h-full overflow-y-auto flex flex-col">
+      <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-slate-100 pb-3 sm:pb-4">
+        <h2 className="text-xl sm:text-2xl font-bold text-brand-blue flex items-center gap-2">
+            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-brand-lime" />
             Ranking
         </h2>
-        <span className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+        <span className="text-xs sm:text-sm font-medium text-slate-500 tabular-nums">
             {cards.length} cartelas em jogo
         </span>
       </div>
 
-      <div className="flex-1 pr-1">
+      <div className="flex-1 pr-0.5">
         {winners.length > 0 ? (
             renderSection('Vencedores!', winners, 'border-brand-lime text-brand-blue', 'bg-brand-lime/10', <Trophy className="w-6 h-6 text-brand-lime fill-current"/>)
         ) : (
-            <div className="text-center p-8 bg-slate-50 rounded-xl mb-8 border-2 border-dashed border-slate-200">
-                <Trophy className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                <p className="text-base font-medium text-slate-400">Aguardando o primeiro grito de BINGO!</p>
+            <div className="text-center p-6 sm:p-8 bg-slate-50 rounded-xl mb-6 border-2 border-dashed border-slate-200">
+                <Trophy className="w-9 h-9 sm:w-10 sm:h-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm sm:text-base font-medium text-slate-400">Aguardando o primeiro grito de BINGO!</p>
             </div>
         )}
 
@@ -70,7 +70,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ cards }) => {
         {renderSection('Faltam 3 Números', threeAway, 'border-yellow-400 text-yellow-700', 'bg-yellow-50', <div className="w-3 h-3 rounded-full bg-yellow-400"/>)}
         
         {oneAway.length === 0 && twoAway.length === 0 && threeAway.length === 0 && winners.length === 0 && (
-             <div className="text-center text-slate-400 mt-12 italic">
+             <div className="text-center text-slate-400 mt-8 sm:mt-12 italic text-sm">
                  <p>Sorteie mais números para ver quem está na liderança.</p>
              </div>
         )}

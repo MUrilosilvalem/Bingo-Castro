@@ -19,21 +19,21 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, showGrid = true 
 
   return (
     <div className={`
-      relative rounded-xl border-2 transition-all duration-300 shadow-sm overflow-hidden
+      relative rounded-2xl border-2 transition-all duration-200 shadow-sm overflow-hidden
       ${card.isWinner 
-        ? 'bg-lime-50 border-brand-lime shadow-lime-100 ring-2 ring-lime-200 scale-[1.02]' 
+        ? 'bg-lime-50 border-brand-lime shadow-lime-100 ring-2 ring-lime-200' 
         : card.missingCount === 1
             ? 'bg-red-50 border-red-300 shadow-red-100'
         : card.missingCount <= 3 
           ? 'bg-white border-slate-200' 
           : 'bg-white border-slate-100 text-slate-400'}
-      ${showGrid ? 'p-4' : 'p-4 flex items-center justify-between gap-4'} 
+      ${showGrid ? 'p-4' : 'p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4'} 
     `}>
       
       {/* Header Section */}
-      <div className={`${showGrid ? 'flex justify-between items-center mb-3' : 'flex-1 min-w-0'}`}>
+      <div className={`${showGrid ? 'flex justify-between items-center mb-3 pr-8 lg:pr-0' : 'flex-1 min-w-0'}`}>
         <div className="overflow-hidden">
-          <h4 className={`font-bold truncate ${showGrid ? 'text-lg' : 'text-2xl'} ${card.isWinner ? 'text-brand-blue' : 'text-slate-800'}`} title={card.playerName}>
+          <h4 className={`font-bold truncate ${showGrid ? 'text-base sm:text-lg' : 'text-lg sm:text-2xl'} ${card.isWinner ? 'text-brand-blue' : 'text-slate-800'}`} title={card.playerName}>
               {card.playerName}
           </h4>
           <p className="text-xs font-mono text-slate-500">ID: {card.id}</p>
@@ -43,11 +43,11 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, showGrid = true 
         {showGrid && (
             card.isWinner ? (
                 <div className="bg-brand-lime text-brand-blue p-1.5 rounded-full animate-bounce">
-                    <Trophy className="w-6 h-6" />
+                    <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
             ) : (
                 <div className={`
-                    flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold text-white shrink-0 shadow-sm
+                    flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold text-white shrink-0 shadow-sm tabular-nums
                     ${card.missingCount === 1 ? 'bg-red-600 animate-pulse ring-2 ring-red-200' : 
                       card.missingCount === 2 ? 'bg-orange-500' : 
                       card.missingCount === 3 ? 'bg-yellow-500' : 'bg-slate-300'}
@@ -76,7 +76,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, showGrid = true 
                 ))}
             </div>
             {!card.isWinner && (
-                <div className="mt-3 text-xs text-right font-medium text-slate-400">
+                <div className="mt-3 text-xs text-right font-medium text-slate-400 tabular-nums">
                 Falta: <span className={`text-base font-bold ${card.missingCount === 1 ? 'text-red-600' : 'text-slate-700'}`}>{card.missingCount}</span>
                 </div>
             )}
@@ -85,29 +85,29 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ card, showGrid = true 
 
       {/* No Grid Mode - Expanded Info */}
       {!showGrid && (
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
               {!card.isWinner ? (
-                  <div className="flex flex-col items-end">
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2">
                       {/* Show specific missing numbers if count is small */}
                       {missingNumbers.length > 0 && missingNumbers.length <= 5 && (
-                          <div className="flex gap-1 mb-1">
+                          <div className="flex flex-wrap gap-1">
                               {missingNumbers.map(num => (
-                                  <span key={num} className="inline-flex items-center justify-center w-8 h-8 bg-white border-2 border-slate-200 rounded-full text-sm font-bold text-slate-700 shadow-sm">
+                                  <span key={num} className="inline-flex items-center justify-center w-8 h-8 bg-white border-2 border-slate-200 rounded-full text-sm font-bold text-slate-700 shadow-sm tabular-nums">
                                       {num}
                                   </span>
                               ))}
                           </div>
                       )}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 ml-auto">
                           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Faltam</span>
-                          <span className={`text-3xl font-black ${card.missingCount === 1 ? 'text-red-600' : card.missingCount <= 3 ? 'text-orange-500' : 'text-slate-400'}`}>
+                          <span className={`text-2xl sm:text-3xl font-black tabular-nums ${card.missingCount === 1 ? 'text-red-600' : card.missingCount <= 3 ? 'text-orange-500' : 'text-slate-400'}`}>
                               {card.missingCount}
                           </span>
                       </div>
                   </div>
               ) : (
-                  <div className="flex items-center gap-2 bg-brand-lime px-4 py-2 rounded-lg border border-lime-300 shadow-sm">
-                      <Trophy className="w-6 h-6 text-brand-blue" />
+                  <div className="flex items-center gap-2 bg-brand-lime px-4 py-2 rounded-xl border border-lime-300 shadow-sm">
+                      <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-brand-blue" />
                       <span className="font-black text-brand-blue uppercase tracking-widest">Bingo!</span>
                   </div>
               )}
